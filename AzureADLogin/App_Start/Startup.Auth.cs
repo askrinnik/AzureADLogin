@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Globalization;
 using System.IdentityModel.Claims;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Owin.Security;
@@ -17,21 +14,19 @@ namespace AzureADLogin
 {
     public partial class Startup
     {
-        private static string clientId = ConfigurationManager.AppSettings["ida:ClientId"];
-        private static string appKey = ConfigurationManager.AppSettings["ida:ClientSecret"];
-        private static string aadInstance = EnsureTrailingSlash(ConfigurationManager.AppSettings["ida:AADInstance"]);
-        private static string tenantId = ConfigurationManager.AppSettings["ida:TenantId"];
-        private static string postLogoutRedirectUri = ConfigurationManager.AppSettings["ida:PostLogoutRedirectUri"];
+        private static readonly string ClientId = ConfigurationManager.AppSettings["ida:ClientId"];
+        private static readonly string AppKey = ConfigurationManager.AppSettings["ida:ClientSecret"];
+        private static readonly string AadInstance = EnsureTrailingSlash(ConfigurationManager.AppSettings["ida:AADInstance"]);
+        private static readonly string TenantId = ConfigurationManager.AppSettings["ida:TenantId"];
+        private static readonly string PostLogoutRedirectUri = ConfigurationManager.AppSettings["ida:PostLogoutRedirectUri"];
 
-        public static readonly string Authority = aadInstance + tenantId;
+        public static readonly string Authority = AadInstance + TenantId;
 
         // This is the resource ID of the AAD Graph API.  We'll need this to request a token to call the Graph API.
-        string graphResourceId = "https://graph.windows.net";
+        private const string _graphResourceId = "https://graph.windows.net";
 
         public void ConfigureAuth(IAppBuilder app)
         {
-            ApplicationDbContext db = new ApplicationDbContext();
-
             app.SetDefaultSignInAsAuthenticationType(CookieAuthenticationDefaults.AuthenticationType);
 
             app.UseCookieAuthentication(new CookieAuthenticationOptions());
@@ -39,9 +34,9 @@ namespace AzureADLogin
             app.UseOpenIdConnectAuthentication(
                 new OpenIdConnectAuthenticationOptions
                 {
-                    ClientId = clientId,
+                    ClientId = ClientId,
                     Authority = Authority,
-                    PostLogoutRedirectUri = postLogoutRedirectUri,
+                    PostLogoutRedirectUri = PostLogoutRedirectUri,
 
                     Notifications = new OpenIdConnectAuthenticationNotifications()
                     {
@@ -49,11 +44,11 @@ namespace AzureADLogin
                        AuthorizationCodeReceived = (context) => 
                        {
                            var code = context.Code;
-                           ClientCredential credential = new ClientCredential(clientId, appKey);
-                           string signedInUserID = context.AuthenticationTicket.Identity.FindFirst(ClaimTypes.NameIdentifier).Value;
-                           AuthenticationContext authContext = new AuthenticationContext(Authority, new ADALTokenCache(signedInUserID));
-                           AuthenticationResult result = authContext.AcquireTokenByAuthorizationCodeAsync(
-                               code, new Uri(HttpContext.Current.Request.Url.GetLeftPart(UriPartial.Path)), credential, graphResourceId).Result;
+                           var credential = new ClientCredential(ClientId, AppKey);
+                           var signedInUserId = context.AuthenticationTicket.Identity.FindFirst(ClaimTypes.NameIdentifier).Value;
+                           var authContext = new AuthenticationContext(Authority, new AdalTokenCache(signedInUserId));
+                           _ = authContext.AcquireTokenByAuthorizationCodeAsync(
+                             code, new Uri(HttpContext.Current.Request.Url.GetLeftPart(UriPartial.Path)), credential, _graphResourceId).Result;
 
                            return Task.FromResult(0);
                        }
